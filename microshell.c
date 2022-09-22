@@ -6,7 +6,7 @@
 /*   By: makbulut <makbulut@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2022/09/19 20:03:39 by makbulut          #+#    #+#             */
-/*   Updated: 2022/09/19 20:10:43 by makbulut         ###   ########.fr       */
+/*   Updated: 2022/09/22 13:03:17 by makbulut         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -39,43 +39,43 @@ void	ft_close(int *fd)
 	*fd = -1;
 }
 
-int	main(int argc, char **argv, char **envp)
+int	main(int ac, char **av, char **env)
 {
 	int i = 0, cmd = 1, pid = 0, fd_in[2] = {-1, -1}, fd_out[2] = {-1, -1};
 
-	if (argc < 2)
+	if (ac < 2)
 		return (0);
-	while (argv[i])
+	while (av[i])
 	{
 		i++;
-		while (argv[i] && argv[i][0] == ';')
+		while (av[i] && av[i][0] == ';')
 			i++;
-		if (!argv[i])
+		if (!av[i])
 			break ;
-		if (strcmp(argv[i], "cd") == 0)
+		if (strcmp(av[i], "cd") == 0)
 		{
 			cmd = i;
-			while (argv[i] && argv[i][0] != ';')
+			while (av[i] && av[i][0] != ';')
 				i++;
 			if (i - cmd != 2)
 				ft_write("error: cd: bad arguments", "");
-			else if (chdir(argv[cmd + 1]) == -1)
+			else if (chdir(av[cmd + 1]) == -1)
 				ft_write("error: cd: cannot change \
-				directory to ", argv[cmd + 1]);
+				directory to ", av[cmd + 1]);
 		}
 		else
 		{
 			cmd = i;
 			i++;
-			while (argv[i])
+			while (av[i])
 			{
-				if (argv[i][0] == '|')
+				if (av[i][0] == '|')
 				{
 					if (pipe(fd_out) == -1)
 						ft_write("error: fatal", "");
 					break ;
 				}
-				else if (argv[i][0] == ';')
+				else if (av[i][0] == ';')
 					break ;
 				i++;
 			}
@@ -94,9 +94,9 @@ int	main(int argc, char **argv, char **envp)
 					dup2(fd_in[0], STDIN_FILENO);
 					close(fd_in[0]);
 				}
-				argv[i] = NULL;
-				if (execve(argv[cmd], &argv[cmd], envp) == -1)
-					ft_write("error: cannot execute ", argv[cmd]);
+				av[i] = NULL;
+				if (execve(av[cmd], &av[cmd], env) == -1)
+					ft_write("error: cannot execute ", av[cmd]);
 				exit(0);
 			}
 			else if (pid == -1)
