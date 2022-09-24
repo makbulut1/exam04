@@ -1,115 +1,81 @@
-/* ************************************************************************** */
-/*                                                                            */
-/*                                                        :::      ::::::::   */
-/*   microshell.c                                       :+:      :+:    :+:   */
-/*                                                    +:+ +:+         +:+     */
-/*   By: makbulut <makbulut@student.42.fr>          +#+  +:+       +#+        */
-/*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2022/09/19 20:03:39 by makbulut          #+#    #+#             */
-/*   Updated: 2022/09/22 13:03:17 by makbulut         ###   ########.fr       */
-/*                                                                            */
-/* ************************************************************************** */
-
-#include <stdlib.h>
-#include <string.h>
 #include <unistd.h>
 #include <sys/wait.h>
+#include <string.h>
 
-int	ft_strlen(char *s)
+int	fd2(char *str, char *arg)
 {
-	int	i;
-
-	i = 0;
-	while (s[i])
-		i++;
-	return (i);
+    while (*str)
+        write(2, str++, 1);
+    if (arg)
+        while (*arg)
+            write(2, arg++, 1);
+    write(2, "\n", 1);
+    return (1);
 }
 
-void	ft_write(char *s1, char *s2)
+int    ft_exec(char **av, int i, int tmp, char **env)
 {
-	write(STDERR_FILENO, s1, ft_strlen(s1));
-	write(STDERR_FILENO, s2, ft_strlen(s2));
-	write(STDERR_FILENO, "\n", 1);
+    av[i] = 0;
+    dup2(tmp, 0);
+    close(tmp);
+    execve(av[0], av, env);
+    return (fd2("error: cannot execute ", av[0]));
 }
 
-void	ft_close(int *fd)
+int    main(int ac, char **av, char **env)
 {
-	if (*fd != -1)
-		close(*fd);
-	*fd = -1;
-}
+    int    i = 0, pid = 0, fd[2], tmp = dup(0);
 
-int	main(int ac, char **av, char **env)
-{
-	int i = 0, cmd = 1, pid = 0, fd_in[2] = {-1, -1}, fd_out[2] = {-1, -1};
-
-	if (ac < 2)
-		return (0);
-	while (av[i])
-	{
-		i++;
-		while (av[i] && av[i][0] == ';')
-			i++;
-		if (!av[i])
-			break ;
-		if (strcmp(av[i], "cd") == 0)
-		{
-			cmd = i;
-			while (av[i] && av[i][0] != ';')
-				i++;
-			if (i - cmd != 2)
-				ft_write("error: cd: bad arguments", "");
-			else if (chdir(av[cmd + 1]) == -1)
-				ft_write("error: cd: cannot change \
-				directory to ", av[cmd + 1]);
-		}
-		else
-		{
-			cmd = i;
-			i++;
-			while (av[i])
-			{
-				if (av[i][0] == '|')
-				{
-					if (pipe(fd_out) == -1)
-						ft_write("error: fatal", "");
-					break ;
-				}
-				else if (av[i][0] == ';')
-					break ;
-				i++;
-			}
-			pid = fork();
-			if (pid == 0)
-			{
-				if (fd_out[1] != -1)
-				{
-					close(fd_out[0]);
-					dup2(fd_out[1], STDOUT_FILENO);
-					close(fd_out[1]);
-				}
-				if (fd_in[0] != -1)
-				{
-					close(fd_in[1]);
-					dup2(fd_in[0], STDIN_FILENO);
-					close(fd_in[0]);
-				}
-				av[i] = NULL;
-				if (execve(av[cmd], &av[cmd], env) == -1)
-					ft_write("error: cannot execute ", av[cmd]);
-				exit(0);
-			}
-			else if (pid == -1)
-				ft_write("error: fatal", "");
-			ft_close(&fd_in[0]);
-			ft_close(&fd_in[1]);
-			fd_in[0] = fd_out[0];
-			fd_in[1] = fd_out[1];
-			fd_out[0] = -1;
-			fd_out[1] = -1;
-			if (pid > 0)
-				waitpid(pid, NULL, WUNTRACED);
-		}
-	}
-	return (0);
+    (void)ac;
+    while (av[i] && av[i + 1])
+    {
+        av = &av[i + 1];
+        i = 0;
+        while (av[i] && strcmp(av[i], ";") && strcmp(av[i], "|"))
+            i++;
+        if (!strcmp(av[0], "cd"))
+        {
+            if (i != 2)
+                fd2("error: cd: bad arguments", 0);
+            else if (chdir(av[1]) != 0)
+                fd2("error: cd: cannot change directory to ", av[1]);
+        }
+        else if (i && (!av[i] || !strcmp(av[i], ";")))
+        {
+            pid = fork();
+            if (!pid)
+            {
+                if (ft_exec(av, i, tmp, env))
+                    return (1);
+            }
+            else
+            {
+                close(tmp);
+                while (waitpid(-1, 0, 0) != -1)
+                    ;
+                tmp = dup(0);
+            }
+        }
+        else if(i && !strcmp(av[i], "|"))
+        {
+            pipe(fd);
+            pid = fork();
+            if (!pid)
+            {
+                dup2(fd[1], 1);
+                close(fd[0]);
+                close(fd[1]);
+                if (ft_exec(av, i, tmp, env))
+                    return (1);
+            }
+            else
+            {
+                close(fd[1]);
+                close(tmp);
+                tmp = fd[0];
+            }
+        }
+    }
+    close(tmp);
+    return(0);
 }
